@@ -1,0 +1,119 @@
+// Ultrasonic Sensor Pins
+#define TRIG_PIN_FRONT 14
+#define ECHO_PIN_FRONT 27
+#define TRIG_PIN_LEFT 12
+#define ECHO_PIN_LEFT 13
+#define TRIG_PIN_RIGHT 32
+#define ECHO_PIN_RIGHT 33
+
+// Motor Pins for L293N (New GPIO assignments)
+#define IN1 18   // Left motor forward
+#define IN2 19   // Left motor backward
+#define IN3 25   // Right motor forward
+#define IN4 26   // Right motor backward
+#define ENA 23   // Left motor enable (PWM)
+#define ENB 22   // Right motor enable (PWM)
+
+#define SAFE_DISTANCE 20  // Minimum safe distance in cm
+
+void setup() {
+  Serial.begin(115200);
+
+  // Setup ultrasonic sensor pins
+  pinMode(TRIG_PIN_FRONT, OUTPUT);
+  pinMode(ECHO_PIN_FRONT, INPUT);
+  pinMode(TRIG_PIN_LEFT, OUTPUT);
+  pinMode(ECHO_PIN_LEFT, INPUT);
+  pinMode(TRIG_PIN_RIGHT, OUTPUT);
+  pinMode(ECHO_PIN_RIGHT, INPUT);
+
+  // Setup motor driver pins
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT);  // Enable pin for left motor
+  pinMode(ENB, OUTPUT);  // Enable pin for right motor
+
+  // Enable motors (set ENA and ENB to high for full speed)
+  digitalWrite(ENA, HIGH);
+  digitalWrite(ENB, HIGH);
+}
+
+long measureDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  long duration = pulseIn(echoPin, HIGH);
+  return duration * 0.034 / 2;  // Convert duration to cm
+}
+
+void moveForward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void moveBackward() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void turnLeft() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void turnRight() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+
+void loop() {
+  long distanceFront = measureDistance(TRIG_PIN_FRONT, ECHO_PIN_FRONT);
+  long distanceLeft = measureDistance(TRIG_PIN_LEFT, ECHO_PIN_LEFT);
+  long distanceRight = measureDistance(TRIG_PIN_RIGHT, ECHO_PIN_RIGHT);
+
+  Serial.print("Front: ");
+  Serial.print(distanceFront);
+  Serial.print(" cm, Left: ");
+  Serial.print(distanceLeft);
+  Serial.print(" cm, Right: ");
+  Serial.print(distanceRight);
+  Serial.println(" cm");
+
+  // Obstacle avoidance logic
+  if (distanceFront > SAFE_DISTANCE && distanceLeft > SAFE_DISTANCE && distanceRight > SAFE_DISTANCE) {
+    moveForward();  // Move forward if all directions are clear
+  } else if (distanceFront < SAFE_DISTANCE) {
+    if (distanceLeft > SAFE_DISTANCE) {
+      turnLeft();  // Turn left if front obstacle is close and left is clear
+    } else if (distanceRight > SAFE_DISTANCE) {
+      turnRight();  // Turn right if front obstacle is close and right is clear
+    } else {
+      moveBackward();  // Move backward if surrounded
+    }
+  } else if (distanceLeft < SAFE_DISTANCE) {
+    turnRight();  // Turn right if left side obstacle is close
+  } else if (distanceRight < SAFE_DISTANCE) {
+    turnLeft();  // Turn left if right side obstacle is close
+  }
+
+  delay(100);
+}
